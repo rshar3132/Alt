@@ -15,22 +15,28 @@ const Search = () => {
     const [flights, setFlights] = useState(null); // <-- null means "not searched yet"
 
     const SearchForFlights = async (source, destination, date) => {
+
         try {
             console.log('Searching flights with:', { source, destination, date });
             const from = cityToIATA[source] ?? source; // fallback to raw input
              const to   = cityToIATA[destination] ?? destination;
             console.log('date: ', {date});
+
             const response = await axios.post('/api/search_flights', { 
-                source: from, destination: to, date });
-            const flightsData = response.data[0];
+                source: from,
+                destination: to,
+                date 
+                });
+
+            const flightsData = response.data[0];///YAHA TUMHARA RECIEVE HOGAAAA
             setFlights(flightsData);
         } catch (error) {
             console.error('Error searching flights:', error);
             setFlights([]);
         }
     };
-    const navigate = useNavigate();
 
+    const navigate = useNavigate();
 
     const handleClick = (flightID, flightName) => {
         navigate(`/flight/${flightID}`, {
