@@ -23,7 +23,7 @@ const duffelAPI = axios.create({
         'Duffel-Version': 'v2',
         'Authorization': `Bearer ${process.env.DUFFEL_API_KEY}`,
     },
-    timeout: 15000,
+    timeout: 60000,
 });
 
 //add caching layer here if needed
@@ -137,7 +137,8 @@ export const searchFlightsDuffel = async ({
         });
         console.log("3. Duffel API Call successful");
         // Log raw once during dev so you can inspect actual response shape
-        console.log('RAW DUFFEL API RESPONSE:', JSON.stringify(data, null, 2));
+        //console.log('RAW DUFFEL API RESPONSE:', JSON.stringify(data, null, 2));
+        console.log("replied");
         //Duffel API nests results under data.offers
         const raw = data?.data?.offers ?? [];
         const results = Array.isArray(raw) ? raw.map(normalizeFlight) : [];
