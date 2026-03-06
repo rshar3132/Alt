@@ -1,6 +1,7 @@
 import React from "react";
 import { UseBooking } from "../../contexts/Useboooking";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Payment_Button from "../paymentButton/Payment_Button";
 
 const Seat_map = ({
@@ -17,13 +18,15 @@ const Seat_map = ({
                 Premium: { rows: [3, 4], price: 5000, style: `bg-blue-400/20` },
                 Economy: { rows: [5, 6], price: 3000, style: `bg-purple-400/20` },
             },
-        bookedSeats = ["1B", "2C"],
+        bookedSeats = [],
         MaxSeatSelection = 3,
+        flightId,
         // onSeatSelect = () => {},
     }) => {
 
           const { bookingData, updateBookingData } = UseBooking();
-          
+          const navigate = useNavigate();
+          const [fetchedBookedSeats, setFetchedBookedSeats] = useState(bookedSeats);
 
           // const { id: flightId } = useParams(); 
           //  //  Reset seats when flight changes
@@ -39,6 +42,23 @@ const Seat_map = ({
           const selectedSeats = bookingData.seats || []; // [{ label, category, price }]
           const totalPrice = bookingData.totalPrice || 0;
           const seatSelectionCount = selectedSeats.length;
+
+
+          useEffect(() => {
+              if (!flightId) return;
+
+              const fetchBooked = async () => {
+                  try {
+                      const res = await fetch(`/api/${flightId}`);
+                      const data = await res.json();
+                      setFetchedBookedSeats(data.bookedSeats ?? []);
+                  } catch (err) {
+                      console.error("Failed to fetch booked seats:", err);
+                  }
+              };
+
+              fetchBooked();
+          }, [flightId]);
 
 
           // Generate seat letters (A, B, C, ...)
@@ -58,7 +78,7 @@ const Seat_map = ({
 
           // Handle seat selection and deselection
           const handleSeatClick = (seatLabel) => {
-            if (bookedSeats.includes(seatLabel)) return;
+            if (fetchedBookedSeats.includes(seatLabel)) return;
 
             const rowNumber = parseInt(seatLabel.match(/\d+/)[0]);
             const { className, price } = getSeatInfo(rowNumber);
@@ -81,8 +101,9 @@ const Seat_map = ({
 
             // Optional callback
             // onSeatSelect(updatedSelected);
-          };
 
+            
+          };
           
 
   return (
@@ -102,7 +123,7 @@ const Seat_map = ({
             {/* Seat Letters */}
             {seatLetters.map((letter, seatIndex) => {
               const seatLabel = `${rowNumber}${letter}`;
-              const isBooked = bookedSeats.includes(seatLabel);
+              const isBooked = fetchedBookedSeats.includes(seatLabel);
               const isSelected = selectedSeats.some(
                 (s) => s.label === seatLabel
               );
@@ -157,7 +178,7 @@ const Seat_map = ({
             {totalPrice > 0 && (
               <Payment_Button
               >
-                Proceed to Payment
+                "Proceed to Payment"
               </Payment_Button>
             )}
           </>

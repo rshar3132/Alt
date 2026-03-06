@@ -22,10 +22,10 @@ const Search = () => {
              const to   = cityToIATA[destination] ?? destination;
             console.log('date: ', {date});
 
-            const response = await axios.post('/api/search_flights', { 
+            const response = await axios.post('/api/search_duffel', { 
                 source: from,
                 destination: to,
-                date 
+                departureDate: date
                 });
 
             const flightsData = response.data[0];///YAHA TUMHARA RECIEVE HOGAAAA

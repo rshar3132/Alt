@@ -5,7 +5,7 @@ import Seat_map from './Seat_map'
 import { useLocation } from 'react-router-dom'
 
 
-function Flight_id({ bookedSeats = [], MaxSeatSelection = 1 }) {
+function Flight_id({ bookedSeats = [], MaxSeatSelection = 1, flightId }) {
 
   const location = useLocation();
   console.log('data passed through params      :', location.state);
@@ -17,7 +17,12 @@ function Flight_id({ bookedSeats = [], MaxSeatSelection = 1 }) {
           <h1></h1>
         </div>
         <div className="exit exit--front fuselage"></div>
-        <div className="fuselage"><Seat_map bookedSeats={bookedSeats} MaxSeatSelection={MaxSeatSelection} />
+        <div className="fuselage">
+          <Seat_map 
+          bookedSeats={bookedSeats} 
+          MaxSeatSelection={MaxSeatSelection}
+          flightId={flightId}
+          />
         </div>{/*here i need to add props */}
         <div className="exit exit--front fuselage"></div>
       </div>

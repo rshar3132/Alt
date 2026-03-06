@@ -1,41 +1,70 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { UseBooking } from '../../contexts/Useboooking.jsx'
 import '../../App.css'
 import './final.css'
+import axios from 'axios';
 
 
 const Final = () => {
 
     const { bookingData } = UseBooking();
+    const hasBooked = useRef(false);
 
     console.log(bookingData);
 
     //will directly store the booking data to the backend from here 
-    useEffect(() => {
-        // Make an API call to store booking data
-        const storeBookingData = async () => {
-            try {
-                const response = await fetch('/api/bookings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(bookingData),
-                });
+    // useEffect(() => {
+    //     // Make an API call to store booking data
+    //     const storeBookingData = async () => {
+    //         try {
+    //             const response = await fetch('/api/bookings', {
+    //                 method: 'POST',
+    //                 headers: {
+    //                     'Content-Type': 'application/json',
+    //                 },
+    //                 body: JSON.stringify(bookingData),
+    //             });
 
-                if (!response.ok) {
-                    throw new Error('Failed to store booking data');
+    //             if (!response.ok) {
+    //                 throw new Error('Failed to store booking data');
+    //             }
+    //             alert("Booking Successful!");
+    //             const data = await response.json();
+    //             console.log('Booking data stored successfully:', data);
+    //         } catch (error) {
+    //             console.error('Error storing booking data:', error);
+    //         }
+    //     };
+
+    //     storeBookingData();
+    // }, [bookingData]);
+        useEffect(() => {
+            if (!bookingData?.seats?.length) return; // ✅ guard against empty bookingData
+            if(hasBooked.current) return;
+            hasBooked.current = true; // ensure we only attempt to book once per session
+            const storeBookingData = async () => {
+                try {
+                    const token = localStorage.getItem("accessToken"); // ✅ get JWT token
+                    console.log("Token found:");
+                    console.log(bookingData);
+                    const response = await axios.post('/api/bookings', bookingData, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,  // ✅ send JWT
+                        },
+                    });
+
+                    if (response.status !== 200) {
+                        throw new Error('Failed to store booking data');
+                    }
+                    alert("Booking Successful!");
+                    console.log('Booking data stored successfully:', response.data);
+                } catch (error) {
+                    console.error('Error storing booking data:', error);
                 }
-                alert("Booking Successful!");
-                const data = await response.json();
-                console.log('Booking data stored successfully:', data);
-            } catch (error) {
-                console.error('Error storing booking data:', error);
-            }
-        };
+            };
 
-        storeBookingData();
-    }, [bookingData]);
+            storeBookingData();
+        }, []);  // ✅ changed from [bookingData] to [] — only run once on mount
 
     
 
