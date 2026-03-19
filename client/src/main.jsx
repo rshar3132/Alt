@@ -37,11 +37,9 @@ const router = createBrowserRouter([
 ]);
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
     <AuthProvider>
       <BookingProvider>
         <RouterProvider router={router} />
       </BookingProvider>
     </AuthProvider>
-  </StrictMode>
-);
+  );

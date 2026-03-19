@@ -2,6 +2,7 @@ import React from 'react'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer' 
 import { Outlet } from 'react-router-dom'
+import AgentChat from '../../components/AgentChat'
 
 const AppLayout = () => {
   return (
@@ -17,7 +18,7 @@ const AppLayout = () => {
 
     {/* Footer (sticks to bottom) */}
     <Footer />
-    
+    <AgentChat />
   </div>
 
   )

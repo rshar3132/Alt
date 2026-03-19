@@ -49,7 +49,7 @@ const Seat_map = ({
 
               const fetchBooked = async () => {
                   try {
-                      const res = await fetch(`/api/${flightId}`);
+                      const res = await fetch(`/api/seats/${flightId}`);
                       const data = await res.json();
                       setFetchedBookedSeats(data.bookedSeats ?? []);
                   } catch (err) {
