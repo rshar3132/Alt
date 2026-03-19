@@ -1,5 +1,5 @@
 
-import { getBookedSeats, bookSeats, createFullBooking } from "../services/seatService.js";
+import { getBookedSeats, createFullBooking } from "../services/seatService.js";
 
 export const fetchBookedSeats = async (req, res) => {
   try {
@@ -10,22 +10,22 @@ export const fetchBookedSeats = async (req, res) => {
   }
 };
 
-export const createBooking = async (req, res) => {
-  const { flightId, seatNumbers } = req.body;
-  if (!flightId || !seatNumbers?.length) {
-    return res.status(400).json({ error: "flightId and seatNumbers required" });
-  }
+// export const createBooking = async (req, res) => {
+//   const { flightId, seatNumbers } = req.body;
+//   if (!flightId || !seatNumbers?.length) {
+//     return res.status(400).json({ error: "flightId and seatNumbers required" });
+//   }
 
-  try {
-    await bookSeats(flightId, seatNumbers);
-    res.json({ success: true });
-  } catch (err) {
-    if (err.code === 11000 || err.writeErrors?.some((e) => e.code === 11000)) {
-      return res.status(409).json({ error: "Seat conflict" });
-    }
-    res.status(500).json({ error: "Booking failed" });
-  }
-};
+//   try {
+//     await bookSeats(flightId, seatNumbers);
+//     res.json({ success: true });
+//   } catch (err) {
+//     if (err.code === 11000 || err.writeErrors?.some((e) => e.code === 11000)) {
+//       return res.status(409).json({ error: "Seat conflict" });
+//     }
+//     res.status(500).json({ error: "Booking failed" });
+//   }
+// };
 
 
 export const storeBooking = async (req, res) => {

@@ -67,9 +67,9 @@ export const searchFlightsDuffel = async ({
     destination,
     departureDate,
     returnDate,
-    adults,
-    children,
-    cabinClass
+    adults = 1,
+    children = 0,
+    cabinClass = "economy"
     }) => {
     console.log("2. Duffel Service calling API with:", { source, destination, departureDate });
     try {
