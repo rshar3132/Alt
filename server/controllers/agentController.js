@@ -6,19 +6,23 @@ import { tools } from "../utils/agentTools.js";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY }); // uses GROQ_API_KEY from .env
 
+const SYSTEM_PROMPT = {
+  role: "system",
+  content:
+    "You are a helpful flight booking assistant. You help users search flights, make bookings, and manage their travel. Always confirm details before booking.",
+};
+
+
 export const handleAgentMessage = async (req, res) => {
-  const { messages } = req.body; // full conversation history from frontend
+  const { messages : rawMessages } = req.body;
+  const messages = [ ...rawMessages ] // full conversation history from frontend
   const userId = req.user._id;
 
   try {
     let response = await client.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful flight booking assistant. You help users search flights, make bookings, and manage their travel. Always confirm details before booking.",
-        },
+        SYSTEM_PROMPT,
         ...messages,
       ],
       tools: tools,
@@ -27,26 +31,29 @@ export const handleAgentMessage = async (req, res) => {
 
     while (response.choices[0].finish_reason === "tool_calls") {
       const toolCall = response.choices[0].message.tool_calls[0];
-      const toolResult = await executeTool(
-        toolCall.function.name,
-        JSON.parse(toolCall.function.arguments), // ✅ Groq returns arguments as a JSON string
-        userId
-      );
-
-      messages.push(response.choices[0].message); // push assistant message with tool_calls
-      messages.push({
-        role: "tool",
-        tool_call_id: toolCall.id,
-        content: JSON.stringify(toolResult),
-      });
+      // const toolResult = await executeTool(
+      //   toolCall.function.name,
+      //   JSON.parse(toolCall.function.arguments), // ✅ Groq returns arguments as a JSON string
+      //   userId
+      // );
+      for(const toolCall of response.choices[0].message.tool_calls) {
+        const toolResult = await executeTool(
+          toolCall.function.name,
+          JSON.parse(toolCall.function.arguments), // ✅ Groq returns arguments as a JSON string
+          userId
+        );
+        messages.push(response.choices[0].message); // push assistant message with tool_calls
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(toolResult),
+        });
+      }
 
       response = await client.chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
-          {
-            role: "system",
-            content: "You are a helpful flight booking assistant...",
-          },
+          SYSTEM_PROMPT,
           ...messages,
         ],
         tools: tools,
@@ -56,7 +63,8 @@ export const handleAgentMessage = async (req, res) => {
 
     // Final text response
     res.json({
-      reply: response.choices[0].message.content,
+      // reply: response.choices[0].message.content,
+      reply: response.choices[0].message.content ?? "Done! Is there anything else I can help with?",
       messages,
     });
   } catch (err) {
@@ -77,9 +85,21 @@ const executeTool = async (toolName, input, userId) => {
     case "get_user_bookings":
       return await Booking.find({ userId }).lean();
 
-    case "book_ticket":
-      return await seatService.createFullBooking({ ...input, userId });
-
+    case "book_ticket": {
+      const bookingData = {
+        selectedFlight: {
+          flightID:    input.flightId,
+          flightName:  input.flightName ?? "",
+          source:      input.source ?? "",
+          destination: input.destination ?? "",
+          date:        input.date ?? "",
+        },
+        seats:       input.seats ?? [{ label: input.seatNumber }],
+        user:        input.passengers,
+        totalPrice:  input.totalPrice ?? 0,
+      };
+      return await seatService.createFullBooking(bookingData, userId);
+    }
     case "cancel_booking":
       return await Booking.findOneAndDelete({ _id: input.bookingId, userId });
 

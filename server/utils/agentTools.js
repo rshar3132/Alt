@@ -30,32 +30,50 @@ export const tools = [
     }
   },
   {
-    type: "function",
-    function: {
-      name: "book_ticket",
-      description: "Book a flight ticket for the user after confirming details",
-      parameters: {
-        type: "object",
-        properties: {
-          flightId:   { type: "string" },
-          seatNumber: { type: "string" },
-          passengers: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                name:   { type: "string" },
-                age:    { type: "number" },
-                gender: { type: "string" }
-              }
-            }
+  type: "function",
+  function: {
+    name: "book_ticket",
+    description: "Book a flight ticket for the user after confirming details",
+    parameters: {
+      type: "object",
+      properties: {
+        flightId:    { type: "string", description: "The FlightID from search results" },
+        flightName:  { type: "string", description: "Airline name e.g. IndiGo" },
+        source:      { type: "string", description: "Departure city IATA code" },
+        destination: { type: "string", description: "Arrival city IATA code" },
+        date:        { type: "string", description: "Departure date YYYY-MM-DD" },
+        seats: {
+          type: "array",
+          description: "Array of seat objects to book",
+          items: {
+            type: "object",
+            properties: {
+              label:    { type: "string", description: "Seat label e.g. 3A" },
+              category: { type: "string", description: "Business, Premium, or Economy" },
+              price:    { type: "number", description: "Price for this seat in INR" }
+            },
+            required: ["label", "category", "price"]
           }
         },
-        required: ["flightId", "seatNumber", "passengers"]
-      }
+        totalPrice: { type: "number", description: "Total price for all seats" },
+        passengers: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name:   { type: "string" },
+              age:    { type: "number" },
+              gender: { type: "string" }
+            }
+          }
+        }
+      },
+      required: ["flightId", "flightName", "source", "destination", "date", "seats", "totalPrice", "passengers"]
     }
-  },
-  {
+  }
+},
+
+{
     type: "function",
     function: {
       name: "cancel_booking",

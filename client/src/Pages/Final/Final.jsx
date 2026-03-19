@@ -47,7 +47,7 @@ const Final = () => {
                     const token = localStorage.getItem("accessToken"); // ✅ get JWT token
                     console.log("Token found:");
                     console.log(bookingData);
-                    const response = await axios.post('/api/bookings', bookingData, {
+                    const response = await axios.post('/api/seats/bookings', bookingData, {
                         headers: {
                             'Authorization': `Bearer ${token}`,  // ✅ send JWT
                         },
