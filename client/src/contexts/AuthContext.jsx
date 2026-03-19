@@ -1,52 +1,55 @@
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { getItem, setItem, removeItem } from "../utils/localStorage";
-import { use } from "react";
 
-
-
-
-// eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-
     const [accessToken, setAccessToken] = useState(getItem("accessToken") || null);
     const [refreshToken, setRefreshToken] = useState(getItem("refreshToken") || null);
-    const [user, setUser] = useState(getItem("user") ? getItem("user") : null);
-    console.log("AuthProvider user:", user);
+    const [user, setUser] = useState(getItem("user") || null);
     const [loading, setLoading] = useState(true);
 
-    // -------------------------------------------
-    // 1️ LOGIN FUNCTION
-    // -------------------------------------------
+    // Ref so interceptor always has latest refreshToken without stale closure
+    const refreshTokenRef = useRef(refreshToken);
+    useEffect(() => { refreshTokenRef.current = refreshToken; }, [refreshToken]);
+
+    // Track if a refresh is already in-flight to avoid parallel refresh calls
+    const isRefreshing = useRef(false);
+    const failedQueue = useRef([]);
+
+    const processQueue = (error, token = null) => {
+        failedQueue.current.forEach(({ resolve, reject }) => {
+            if (error) reject(error);
+            else resolve(token);
+        });
+        failedQueue.current = [];
+    };
+
+    const clearAuth = () => {
+        removeItem("accessToken");
+        removeItem("refreshToken");
+        removeItem("user");
+        setAccessToken(null);
+        setRefreshToken(null);
+        setUser(null);
+        delete axios.defaults.headers.common["Authorization"];
+    };
+
     const login = async (email, password) => {
         try {
-            const response = await axios.post("/api/login", {
-                email,
-                password,
-            });
+            const response = await axios.post("/api/login", { email, password });
+            const { Username, accessToken: at, refreshToken: rt } = response.data;
 
-            const { name, accessToken, refreshToken } = response.data;
+            setItem("accessToken", at);
+            setItem("refreshToken", rt);
+            setAccessToken(at);
+            setRefreshToken(rt);
+            axios.defaults.headers.common["Authorization"] = `Bearer ${at}`;
 
-            // Save to localStorage
-            setItem("accessToken", accessToken);
-            setItem("refreshToken", refreshToken);
-
-
-            setAccessToken(accessToken);
-            setRefreshToken(refreshToken);
-
-            // Set axios default Authorization header
-            axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-
-            // const userData = {  };
-            const userData = { name, email: email };
-            // (Optional) Fetch user details or decode JWT here
+            const userData = { name: Username, email };
             setUser(userData);
-            //saving username and email to local storage
             setItem("user", userData);
-
             return true;
         } catch (error) {
             console.error("Login failed:", error.response?.data || error.message);
@@ -54,90 +57,102 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // -------------------------------------------
-    //  Register FUNCTION
-    // -------------------------------------------
-
     const register = async (name, email, password) => {
-    try {
-        const response = await axios.post("/api/register", { name, email, password });
-        console.log(response.data.message);
-        return { success: true, message: response.data.message };
-    } catch (error) {
-        console.error("Registration failed:", error.response?.data || error.message);
-        return { success: false, message: error.response?.data?.message || "Registration failed" };
-    }
+        try {
+            const response = await axios.post("/api/register", { name, email, password });
+            return { success: true, message: response.data.message };
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || "Registration failed" };
+        }
     };
 
-
-    // -------------------------------------------
-    //  LOGOUT FUNCTION
-    // -------------------------------------------
     const logout = async () => {
         try {
-            if (refreshToken) {
-                await axios.post("/api/logout", {
-                    refreshToken,
-                });
+            if (refreshTokenRef.current) {
+                await axios.post("/api/logout", { refreshToken: refreshTokenRef.current });
             }
         } catch (error) {
             console.error("Logout error:", error.response?.data || error.message);
         } finally {
-            // Always clear local state and storage
-            removeItem("accessToken");
-            removeItem("refreshToken");
-            removeItem("user");
-
-            setAccessToken(null);
-            setRefreshToken(null);
-            setUser(null);
-            delete axios.defaults.headers.common["Authorization"];
-
+            clearAuth();
         }
     };
 
-
-    // -------------------------------------------
-    //   REFRESH TOKEN FUNCTION
-    // -------------------------------------------
     const refreshAccessToken = async () => {
+        const rt = refreshTokenRef.current;
+        if (!rt) return null;
+
         try {
-            if (!refreshToken) return null;
+            // Use a plain axios call (not the instance with interceptor) to avoid loops
+            const response = await axios.post("/api/refresh", { refreshToken: rt });
+            const { accessToken: newAt, refreshToken: newRt } = response.data;
 
-            const response = await axios.post("/api/refresh", {
-                refreshToken,
-            });
+            setAccessToken(newAt);
+            setItem("accessToken", newAt);
+            axios.defaults.headers.common["Authorization"] = `Bearer ${newAt}`;
 
-            const { accessToken: newAccessToken } = response.data;
+            // Store rotated refresh token if server sends one back
+            if (newRt) {
+                setRefreshToken(newRt);
+                setItem("refreshToken", newRt);
+            }
 
-            setAccessToken(newAccessToken);
-            setItem("accessToken", newAccessToken);
-            axios.defaults.headers.common["Authorization"] = `Bearer ${newAccessToken}`;
-            return newAccessToken;
+            return newAt;
         } catch (error) {
-            console.error("Token refresh failed:", error.response?.data || error.message);
-            logout(); // If refresh fails, force logout
+            const code = error.response?.data?.code;
+            const status = error.response?.status;
+            // If refresh token itself is expired (401) or invalid (403), force logout
+            if (status === 401 || status === 403 || code === 'REFRESH_EXPIRED') {
+                clearAuth();
+                alert("Your session has expired. Please log in again.");
+                window.location.href = "/Login";
+            }
             return null;
         }
     };
 
-    // -------------------------------------------
-    //  AXIOS INTERCEPTOR — AUTO REFRESH TOKEN
-    // -------------------------------------------
+    // Axios response interceptor — auto-refresh on 401
     useEffect(() => {
+        if (accessToken) {
+            axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+        }
+
         const interceptor = axios.interceptors.response.use(
             (response) => response,
             async (error) => {
                 const originalRequest = error.config;
 
-                // If access token expired (401), try refreshing once
-                if (error.response?.status === 401 && !originalRequest._retry) {
+                // Only retry once, and skip the refresh endpoint itself to avoid loops
+                if (
+                    error.response?.status === 401 &&
+                    !originalRequest._retry &&
+                    !originalRequest.url?.includes("/api/refresh") &&
+                    !originalRequest.url?.includes("/api/login")
+                ) {
+                    if (isRefreshing.current) {
+                        // Queue the request while refresh is in flight
+                        return new Promise((resolve, reject) => {
+                            failedQueue.current.push({ resolve, reject });
+                        })
+                            .then((token) => {
+                                originalRequest.headers["Authorization"] = `Bearer ${token}`;
+                                return axios(originalRequest);
+                            })
+                            .catch((err) => Promise.reject(err));
+                    }
+
                     originalRequest._retry = true;
+                    isRefreshing.current = true;
+
                     const newToken = await refreshAccessToken();
+                    isRefreshing.current = false;
 
                     if (newToken) {
+                        processQueue(null, newToken);
                         originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
                         return axios(originalRequest);
+                    } else {
+                        processQueue(error, null);
                     }
                 }
 
@@ -146,24 +161,24 @@ export const AuthProvider = ({ children }) => {
         );
 
         return () => axios.interceptors.response.eject(interceptor);
-    }, [refreshToken]);
+    }, []); // run once — interceptor uses ref for latest token
 
-    // -------------------------------------------
-    //  INITIALIZE ON PAGE LOAD
-    // -------------------------------------------
+    // On page load: if we have a refresh token but no access token, try to get one
     useEffect(() => {
         const initializeAuth = async () => {
-            if (refreshToken && !accessToken) {
+            const rt = getItem("refreshToken");
+            const at = getItem("accessToken");
+
+            if (rt && !at) {
                 await refreshAccessToken();
+            } else if (at) {
+                axios.defaults.headers.common["Authorization"] = `Bearer ${at}`;
             }
             setLoading(false);
         };
         initializeAuth();
     }, []);
 
-    // -------------------------------------------
-    //  PROVIDER VALUE
-    // -------------------------------------------
     return (
         <AuthContext.Provider
             value={{
